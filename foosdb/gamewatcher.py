@@ -12,6 +12,7 @@ import requests
 from pprint import pprint
 import pdb
 import os
+import logging
 
 db = create_engine('sqlite:///foosball.db')
 
@@ -53,6 +54,7 @@ class Game(ORMBase):
 class GameWatcher():
 
     debug=True
+    log = logging.getLogger(__name__)
 
     players = [{'pos': 'blue_off','id': 1, 'name': '', 'lost_ticks': 0}, \
          {'pos': 'blue_def', 'id': 1, 'name': '', 'lost_ticks': 0}, \
@@ -80,10 +82,14 @@ class GameWatcher():
     hipchat_url = 'https://api.hipchat.com/v1/rooms/message?auth_token='
 
     def __init__(self):
-        print os.environ.get('HIPCHAT_API_KEY')
-        print os.environ.get('HIPCHAT_ROOM_ID')
+        self.log.setLevel(logging.DEBUG)
+        fh = logging.StreamHandler()
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        self.log.addHandler(fh)
+        self.log.info('Startup')
+
         if self.hipchat_api_key == '' or self.hipchat_room_id == '':
-            print 'Hipchat env variables missing, disabling messaging'
+            log.warn('Hipchat env variables missing, disabling messaging')
             self.hipchat_url = ''
         else:
             self.hipchat_url += self.hipchat_api_key
@@ -103,13 +109,14 @@ class GameWatcher():
         read and parse the JSON produced by detectPlayers
         """
         if self.debug:
+            self.log.debug('Reading test/players.json')
             playerfile = 'test/players.json'
         else:
             playerfile = '/tmp/players.json'
         with open(playerfile) as f:
-            self.players_json = f.read()
+            players_json = f.read()
 
-        current_players = json.loads(self.players_json)
+        current_players = json.loads(players_json)
 
         #sanity check and chop json
         if 'team' in current_players:
@@ -177,25 +184,34 @@ class GameWatcher():
 
     def WatchTable(self):
 
+        friendly_json = self.GetFriendlyJSON()
+
         #total the number of ticks we've lost players
         for player in self.players:
             self.players_lost_for_ticks += player['lost_ticks']
 
-        pprint(self.GetFriendlyJSON())
+        if self.players_lost_for_ticks > 0:
+            self.log.debug('Players lost, tick counter at: ' + str(self.players_lost_for_ticks))
+
         if self.game_on:
-            print 'game is on!'
+            self.log.debug('game is on')
+
+            with open('friendly_names.json','w') as f:
+                f.write(friendly_json)
+
             if self.found_player_count < 4:
                 self.players_lost_for_ticks += 1
                 #TODO: this threshold is pretty damn arbitrary ...
                 if self.players_lost_for_ticks > 10:
                     #we've lost track of one player for four ticks or more players for less ticks ...
                     self.game_on = False
-                    print 'game is OVER'
+                    self.log.info('game is over')
+                    self.players_lost_for_ticks = 0
         else:
-            print 'waiting for a game to start ...'
+            self.log.debug('waiting for a game to start ...')
             if self.found_player_count == 4:
                 self.game_on = True
-                print 'game is starting!'
+                self.log.info('game is starting')
                 hipchat_message = ' with ' + self.players[0]['name'] + ', ' + self.players[1]['name'] \
                     + ', ' + self.players[2]['name'] + ', and ' + self.players[3]['name'] + '!'
 
@@ -203,7 +219,7 @@ class GameWatcher():
                 if not self.debug and url != '':
                     r = requests.get(url)
                 else:
-                    print url
+                    self.log.debug('skipping hipchat call to: ' + url)
 
 
 if __name__ == '__main__':
