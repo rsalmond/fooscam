@@ -53,7 +53,7 @@ class Game(ORMBase):
 
 class GameWatcher():
 
-    debug=True
+    debug=False
     log = logging.getLogger(__name__)
 
     players = [{'pos': 'blue_off','id': 1, 'name': '', 'lost_ticks': 0}, \
@@ -88,9 +88,11 @@ class GameWatcher():
         self.log.addHandler(fh)
         self.log.info('Startup')
 
-        if self.hipchat_api_key == '' or self.hipchat_room_id == '':
-            log.warn('Hipchat env variables missing, disabling messaging')
+        if self.hipchat_api_key is None or self.hipchat_room_id is None:
+            self.log.warn('Hipchat env variables missing, disabling messaging')
             self.hipchat_url = ''
+			self.hipchat_api_key = ''
+			self.hipchat_room_id = ''
         else:
             self.hipchat_url += self.hipchat_api_key
             self.hipchat_url += '&room_id=' + str(self.hipchat_room_id) + '&from=Fooscam&message='
