@@ -53,7 +53,7 @@ class Game(ORMBase):
 
 class GameWatcher():
 
-    debug=True
+    debug=False
     log = logging.getLogger(__name__)
 
     players = [{'pos': 'blue_off','id': 1, 'name': '', 'lost_ticks': 0}, \
@@ -88,12 +88,14 @@ class GameWatcher():
         self.log.addHandler(fh)
         self.log.info('Startup')
 
-        if self.hipchat_api_key == '' or self.hipchat_room_id == '':
-            log.warn('Hipchat env variables missing, disabling messaging')
+        """if self.hipchat_api_key is None or self.hipchat_room_id is None:
+            self.log.warn('Hipchat env variables missing, disabling messaging')
             self.hipchat_url = ''
-        else:
-            self.hipchat_url += self.hipchat_api_key
-            self.hipchat_url += '&room_id=' + str(self.hipchat_room_id) + '&from=Fooscam&message='
+            self.hipchat_api_key = ''
+            self.hipchat_room_id = ''
+        else:""" #TODO: UNFUCK THIS
+        self.hipchat_url += self.hipchat_api_key
+        self.hipchat_url += '&room_id=' + str(self.hipchat_room_id) + '&from=Fooscam&message='
         #set up db connection
         Session = sessionmaker()
         Session.configure(bind=db)
@@ -163,7 +165,7 @@ class GameWatcher():
         for player in self.players:
             player_name = self.GetPlayerName(player['id'])
             #wait a few ticks after a player becomes unrecognized before marking them as lost
-            if player_name is None:
+            if player_name is None or player['id'] == '-1':
                 if player['lost_ticks'] > self.lost_tick_threshold:
                     player['name'] = 'None'
             else:
@@ -216,8 +218,10 @@ class GameWatcher():
                     + ', ' + self.players[2]['name'] + ', and ' + self.players[3]['name'] + '!'
 
                 url = self.hipchat_url+random.choice(self.announcements) + hipchat_message
-                if not self.debug and url != '':
+                if self.debug == False and url != '':
+                    self.log.debug('sending hipchat update to: ' + url)
                     r = requests.get(url)
+                    self.log.debug('http resp: ' + str(r.status_code))
                 else:
                     self.log.debug('skipping hipchat call to: ' + url)
 
