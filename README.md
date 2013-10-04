@@ -1,6 +1,4 @@
-fooscam
+Fooscam
 =======
 
-the spit and bailing wire which holds the foosball monitoring system together
-
-foosdb - the gamewatcher daemon which tracks users and logs game stats
+This project has permenantly moved [here](https://github.com/appneta/fooscam), where we tend to play a lot of foosball.
